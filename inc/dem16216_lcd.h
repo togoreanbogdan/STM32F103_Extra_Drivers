@@ -55,7 +55,10 @@ void LCD_vInit(void);
 void LCD_vWriteCharNext(void);
 void LCD_vWriteCharPos(uint8_t pos);
 void LCD_vGoHome(void);
-	
+void LCD_vClrDisp(void);
+void LCD_vGoToPos(uint8_t line, uint8_t pos);
+void LCD_vSendChar(uint8_t data);
+void LCD_vRtrnCursHome(void);
 #ifdef __cplusplus
 }
 #endif

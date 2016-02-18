@@ -34,7 +34,7 @@ static GPIO_InitTypeDef  GPIO_InitStruct;
 **************************************************/
 void LCD__vSendCmdByte(uint8_t data);
 static void LCD__vSendNibble(uint8_t data);
-void LCD__vSendChar(uint8_t data);
+//void LCD__vSendChar(uint8_t data);
 /**************************************************
 * Function name : void LCD_vInit()
 * returns : void
@@ -62,20 +62,6 @@ void LCD_vInit()
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_RS_PIN | LCD_RW_PIN  | LCD_D4_PIN \
 												| LCD_D5_PIN | LCD_D6_PIN | LCD_D7_PIN, GPIO_PIN_RESET);
 
-	/*
-	HAL_Delay(40);
-	LCD__vSendCmdNibble(0x2);
-	LCD__vSendCmdNibble(0x2);
-	LCD__vSendCmdNibble(0x8);
-	HAL_Delay(1);
-	LCD__vSendCmdByte(0xE);
-	HAL_Delay(1);
-	LCD__vSendCmdByte(0x1);
-	HAL_Delay(3);
-	LCD__vSendCmdByte(0x6);
-	HAL_Delay(30);
-	LCD__vSendCmdByte(0x62);
-	*/
 	HAL_Delay(40);
 	LCD__vSendCmdByte(0x3);
 	LCD__vSendCmdByte(0x3);
@@ -83,27 +69,23 @@ void LCD_vInit()
 	LCD__vSendCmdByte(0x2);
 	LCD__vSendCmdByte(0x28);
 	HAL_Delay(1);
+	LCD__vSendCmdByte(0x0E);
+	HAL_Delay(1);
+	LCD__vSendCmdByte(0x1);
+	HAL_Delay(3);
 	LCD__vSendCmdByte(0x6);
 	HAL_Delay(1);
-	LCD__vSendCmdByte(0x0F);
-	HAL_Delay(3);
-	LCD__vSendCmdByte(0x1);
-	HAL_Delay(30);
-	LCD__vSendCmdByte(0x14);
-	LCD__vSendCmdByte(0x14);
-	LCD__vSendCmdByte(0x14);
-	LCD__vSendCmdByte(0x14);
 }
 
 void LCD__vSendCmdByte(uint8_t data)
 {
 #ifdef IF_4BIT
 	/* Set low RS for instruction writing */
-	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_RS_PIN, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_RS_PIN | LCD_RW_PIN, GPIO_PIN_RESET);
 	
-	LCD__vSendNibble(data & 0xF0);
+	LCD__vSendNibble(data >> 4);
 
-	LCD__vSendNibble(data & 0xF);
+	LCD__vSendNibble(data);
 	
 #else
   /* Set low RS and R/W for instruction writing */
@@ -113,14 +95,12 @@ void LCD__vSendCmdByte(uint8_t data)
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_EN_PIN, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, ((data << 2) & 0x3FC), GPIO_PIN_SET);
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_EN_PIN, GPIO_PIN_RESET);
-	HAL_Delay(5);
-	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_EN_PIN, GPIO_PIN_SET);
 #endif
 }
 
 static void LCD__vSendNibble(uint8_t data)
 {
-	/* Set low RS and R/W for instruction writing */
+	/* Set low R/W for writing */
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_RW_PIN, GPIO_PIN_RESET);
 	
 	/* Set EN pin to high */
@@ -128,27 +108,51 @@ static void LCD__vSendNibble(uint8_t data)
 		
 	/* Send first nibble */
 	LCD_GPIO_PORT->ODR &= 0xFF87; /* Clear port using mask */
-	LCD_GPIO_PORT->ODR |= ((data & 0xF) << 3); /* Set high D4-D7 bits */
-	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_EN_PIN, GPIO_PIN_RESET);
+	LCD_GPIO_PORT->ODR |= ((data & 0xF) << 3); /* Set D4-D7 bits */
 	HAL_Delay(1);
-	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_EN_PIN, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_EN_PIN, GPIO_PIN_RESET);
 }
 
-void LCD__vSendChar(uint8_t data)
+void LCD_vSendChar(uint8_t data)
 {
 	/* Set RS high for data writing */
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_RS_PIN, GPIO_PIN_SET);
 	
 #ifdef IF_4BIT
-	/* Set low RS for instruction writing */
-	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_RS_PIN, GPIO_PIN_RESET);
+	/* Send first nibble */
+	LCD__vSendNibble(data >> 4);
 	
-	LCD__vSendNibble(data & 0xF0);
-
-	LCD__vSendNibble(data & 0xF);
-	
+	/* Send second nibble */
+	LCD__vSendNibble(data);
 #else
 	
 #endif
 }
 
+void LCD_vClrDisp()
+{
+	LCD__vSendCmdByte(0x1);
+	HAL_Delay(2);
+}
+
+void LCD_vGoToPos(uint8_t line, uint8_t pos)
+{
+	switch (line)
+	{
+		case 0x1: 
+			LCD__vSendCmdByte(0x80 + pos);
+			break;
+		case 0x2: 
+			LCD__vSendCmdByte(0xC0 + pos);
+			break;
+		default: 
+			LCD__vSendCmdByte(0x80 + pos);
+			break;
+	}
+}
+
+void LCD_vRtrnCursHome()
+{
+	LCD__vSendCmdByte(0x02);
+	HAL_Delay(2);
+}
