@@ -1,7 +1,7 @@
 /***************************************************
-* Module name:
+* Module name: DEM 16216 LCD Driver
 **
-Copyright 1997 Company as an unpublished work.
+Copyright 2016 Company as an unpublished work.
 * All Rights Reserved.
 **
 The information contained herein is confidential
@@ -9,11 +9,10 @@ The information contained herein is confidential
 * disclosure of such information is prohibited except
 * by express written agreement with Company.
 **
-First written on xxxxx by xxxx.
+First written on 10.02.2016 by BogTog.
 **
 Module Description:
-* (fill in a detailed description of the module’s
-* function here).
+* General driver for DEM16216 LCD display on STM32 ARM uControllers
 **
 **************************************************/
 /* Include section
@@ -34,7 +33,6 @@ static GPIO_InitTypeDef  GPIO_InitStruct;
 **************************************************/
 void LCD__vSendCmdByte(uint8_t data);
 static void LCD__vSendNibble(uint8_t data);
-//void LCD__vSendChar(uint8_t data);
 /**************************************************
 * Function name : void LCD_vInit()
 * returns : void
@@ -69,7 +67,7 @@ void LCD_vInit()
 	LCD__vSendCmdByte(0x2);
 	LCD__vSendCmdByte(0x28);
 	HAL_Delay(1);
-	LCD__vSendCmdByte(0x0E);
+	LCD__vSendCmdByte(0x0C);
 	HAL_Delay(1);
 	LCD__vSendCmdByte(0x1);
 	HAL_Delay(3);
@@ -100,6 +98,8 @@ void LCD__vSendCmdByte(uint8_t data)
 
 static void LCD__vSendNibble(uint8_t data)
 {
+	uint8_t i;
+
 	/* Set low R/W for writing */
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_RW_PIN, GPIO_PIN_RESET);
 	
@@ -107,8 +107,9 @@ static void LCD__vSendNibble(uint8_t data)
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_EN_PIN, GPIO_PIN_SET);
 		
 	/* Send first nibble */
-	LCD_GPIO_PORT->ODR &= 0xFF87; /* Clear port using mask */
-	LCD_GPIO_PORT->ODR |= ((data & 0xF) << 3); /* Set D4-D7 bits */
+	LCD_GPIO_PORT->ODR &= ~(LCD_D4_PIN | LCD_D5_PIN | LCD_D6_PIN | LCD_D7_PIN); /* Clear port using mask */
+	LCD_GPIO_PORT->ODR |= ((0x1 & data)<<LCD_D4_PIN) | ((0x1 & (data >> 1))<<LCD_D5_PIN) | ((0x1 & (data >> 2))<<LCD_D6_PIN) | ((0x1 & (data >> 3))<<LCD_D7_PIN);
+	//LCD_GPIO_PORT->ODR |= ((data & 0xF) << 3); /* Set D4-D7 bits */
 	HAL_Delay(1);
 	HAL_GPIO_WritePin(LCD_GPIO_PORT, LCD_EN_PIN, GPIO_PIN_RESET);
 }
@@ -137,17 +138,20 @@ void LCD_vClrDisp()
 
 void LCD_vGoToPos(uint8_t line, uint8_t pos)
 {
-	switch (line)
+	if (pos < 16)
 	{
-		case 0x1: 
-			LCD__vSendCmdByte(0x80 + pos);
-			break;
-		case 0x2: 
-			LCD__vSendCmdByte(0xC0 + pos);
-			break;
-		default: 
-			LCD__vSendCmdByte(0x80 + pos);
-			break;
+		switch (line)
+		{
+			case 0x1:
+				LCD__vSendCmdByte(0x80 + pos);
+				break;
+			case 0x2: 
+				LCD__vSendCmdByte(0xC0 + pos);
+				break;
+			default: 
+				LCD__vSendCmdByte(0x80 + pos);
+				break;
+		}
 	}
 }
 
@@ -155,4 +159,13 @@ void LCD_vRtrnCursHome()
 {
 	LCD__vSendCmdByte(0x02);
 	HAL_Delay(2);
+}
+
+void LCD_vSendString(char *string)
+{
+	while (*string != '\0')
+	{
+		LCD_vSendChar(*string);
+		string ++;
+	}
 }
